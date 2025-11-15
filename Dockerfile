@@ -29,6 +29,9 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
+# Креирамо cache директоријум са правилним дозволама
+RUN mkdir -p /app/.next/cache && chown -R nextjs:nodejs /app/.next
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000

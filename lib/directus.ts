@@ -3,7 +3,8 @@
  * Публичан приступ без аутентификације
  */
 
-const DIRECTUS_URL = process.env.NEXT_PUBLIC_DIRECTUS_URL || 'http://185.229.119.44:8155';
+// За server-side користимо DIRECTUS_URL (интерни URL у Docker-у), за client-side NEXT_PUBLIC_DIRECTUS_URL
+const DIRECTUS_URL = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL || 'http://185.229.119.44:8155';
 
 export interface Person {
   id: string | number;
