@@ -1,65 +1,130 @@
-import Image from "next/image";
+import { getPersons, getAreas } from '@/lib/directus';
+import PersonCard from '@/components/PersonCard';
+import YouTubeVideo from '@/components/YouTubeVideo';
+import Filters from '@/components/Filters';
+import GradientHeader from '@/components/GradientHeader';
+import Link from 'next/link';
 
-export default function Home() {
+const YOUTUBE_VIDEO_ID = process.env.NEXT_PUBLIC_YOUTUBE_VIDEO_ID;
+const YOUTUBE_VIDEO_URL = process.env.NEXT_PUBLIC_YOUTUBE_VIDEO_URL;
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ 
+    page?: string;
+    search?: string;
+    place?: string;
+    area?: string;
+    level?: string;
+  }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const page = parseInt(resolvedSearchParams.page || '1', 10);
+  const limit = 10;
+  const offset = (page - 1) * limit;
+
+  const areas = await getAreas();
+  const { data: persons, total } = await getPersons(
+    limit, 
+    offset, 
+    resolvedSearchParams.area,
+    resolvedSearchParams.search,
+    resolvedSearchParams.place,
+    resolvedSearchParams.level
+  );
+  const totalPages = Math.ceil(total / limit);
+
+  // Debug logging
+  console.log('Persons fetched:', persons.length, 'Total:', total);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen">
+      {/* Горњи део са градијентом - црвена до црна */}
+      <GradientHeader />
+
+      {/* Бела позадина за остатак садржаја */}
+      <div className="bg-white">
+        <div className="container mx-auto px-4 py-8">
+
+          {/* Црвени банер */}
+          <div className="bg-red-600 text-white py-4 px-6 rounded-lg mb-8 text-center">
+            <p className="text-lg font-semibold">
+              Погледајте: Како је Србија све дала и предала
+            </p>
+          </div>
+
+          {/* YouTube видео */}
+          {(YOUTUBE_VIDEO_ID || YOUTUBE_VIDEO_URL) && (
+            <div className="mb-8">
+              <YouTubeVideo videoId={YOUTUBE_VIDEO_ID} videoUrl={YOUTUBE_VIDEO_URL} />
+            </div>
+          )}
+
+          {/* Филтери */}
+          <Filters areas={areas} />
+
+          {/* Листа личности */}
+          <div className="mb-12">
+            {persons.length > 0 ? (
+              <>
+                <div className="mb-4 text-gray-600">
+                  <p>Приказано {persons.length} од {total} личности</p>
+                </div>
+                {persons.map((person) => (
+                  <PersonCard key={person.id} person={person} />
+                ))}
+
+                {/* Пагинација */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-4 mt-8">
+                    {page > 1 && (
+                      <Link
+                        href={`/?${new URLSearchParams({
+                          ...(resolvedSearchParams.search && { search: resolvedSearchParams.search }),
+                          ...(resolvedSearchParams.place && { place: resolvedSearchParams.place }),
+                          ...(resolvedSearchParams.area && { area: resolvedSearchParams.area }),
+                          ...(resolvedSearchParams.level && { level: resolvedSearchParams.level }),
+                          page: String(page - 1),
+                        }).toString()}`}
+                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Претходна
+                      </Link>
+                    )}
+                    <span className="text-gray-600">
+                      Страна {page} од {totalPages}
+                    </span>
+                    {page < totalPages && (
+                      <Link
+                        href={`/?${new URLSearchParams({
+                          ...(resolvedSearchParams.search && { search: resolvedSearchParams.search }),
+                          ...(resolvedSearchParams.place && { place: resolvedSearchParams.place }),
+                          ...(resolvedSearchParams.area && { area: resolvedSearchParams.area }),
+                          ...(resolvedSearchParams.level && { level: resolvedSearchParams.level }),
+                          page: String(page + 1),
+                        }).toString()}`}
+                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Следећа
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-600">
+                  Нема доступних личности.
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Проверите конзолу за детаље о дохватању података.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

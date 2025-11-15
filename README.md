@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PogledajBaGruAndjele – Frontend (pogledajbagruandjele-frontend)
 
-## Getting Started
+Јавни UI (Next.js) за пројекат праћења јавних личности/политичара, њихових биографија, функција, афера и извора. Примарни језик интерфејса је српски (ћирилица).
 
-First, run the development server:
+> Напомена: Овај документ ће се мењати како пројекат напредује. Слободно дописуј и ажурирај циљеве и руте.
+
+## Циљеви (мењаће се)
+- Приказ личности са кључним метаподацима (име, фотографија, основна биографија).
+- Историја политичке каријере: странке/покрети, јавне функције, периоди.
+- Афере повезане са личностима, са временским оквиром и статусом.
+- Активности после политике.
+- Извори за сваку тврдњу (више извора, видљиви кориснику).
+- Јавни UI на ћирилици, оптимизован за претрагу и дељење линкова.
+- Интеграција са Directus (REST/GraphQL) као CMS/слој података.
+
+## Планиране руте (почетна скела)
+- `/` – почетна (истакнуте личности/афере, претрага)
+- `/licnosti` – листа личности (филтери: странка, функција, период)
+- `/licnosti/[slug]` – детаљ личности (био, функције, афере, активности, извори)
+- `/afere` – листа афера
+- `/afere/[slug]` – детаљ афере
+
+URL-ови користе латиничну транслитерацију ради једноставнијих линкова; UI је на ћирилици.
+
+## Технички стек
+- Next.js 16 (App Router), React 19
+- Tailwind CSS v4 (тема преко CSS променљивих `--background`, `--foreground`)
+- Server Components + ISR/route cache за јавне странице
+- Интеграција са Directus (када буде спреман) преко REST/GraphQL
+
+## Локално покретање (dev)
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# URL: http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Уређуј `app/page.tsx` и остале руте у `app/`. Стили у `app/globals.css` (Tailwind v4 преко `@import "tailwindcss";`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Конфигурација окружења
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Локални развој (`.env.local`)
+```
+NEXT_PUBLIC_DIRECTUS_URL=http://localhost:8055
+NEXT_PUBLIC_YOUTUBE_VIDEO_ID=ваш_youtube_video_id
+# или
+NEXT_PUBLIC_YOUTUBE_VIDEO_URL=https://www.youtube.com/watch?v=ваш_video_id
+```
 
-## Learn More
+### Docker окружење (`.env.docker`)
+```
+NEXT_PUBLIC_DIRECTUS_URL=http://185.229.119.44:8155
+DIRECTUS_URL=http://directus:8055
+NEXT_PUBLIC_YOUTUBE_VIDEO_ID=ваш_youtube_video_id
+```
 
-To learn more about Next.js, take a look at the following resources:
+**Напомене:**
+- `NEXT_PUBLIC_DIRECTUS_URL` - јавни URL за Directus API (користи се у client-side компонентама)
+- `DIRECTUS_URL` - интерни URL за Directus (користи се у server-side компонентама у Docker окружењу)
+- `NEXT_PUBLIC_YOUTUBE_VIDEO_ID` или `NEXT_PUBLIC_YOUTUBE_VIDEO_URL` - опционално, за YouTube видео на почетној страни
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Архитектура / Стек интеграција
+- Овај репо је независан frontend.
+- У инфраструктурном репоу `pogledajbagruandjele-stack`, фронтенд ће бити клониран у поддиректоријум `pogledajbagruandjele-frontend/` и грађен преко `docker-compose.dev.yml` за dev/staging.
+- Нема ручног копирања фронтенда – увек git clone/pull из овог репоа.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## План наредних корака
+- Скеле за руте (`/licnosti`, `/licnosti/[slug]`, `/afere`, `/afere/[slug]`).
+- Базне компоненте: `PersonCard`, `AffairCard`, `SourceList`, `Filters`.
+- Mock подаци/adapter до интеграције са Directus.
+- Тема и приступачност (accessibility), SEO метаподаци.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
