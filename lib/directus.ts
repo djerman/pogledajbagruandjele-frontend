@@ -122,7 +122,7 @@ export async function getPersons(
         });
         
         // Додајемо релације на личности
-        persons = persons.map((person) => {
+        persons = persons.map((person: Person) => {
           const relations = relationsMap.get(person.id);
           if (relations) {
             person.area = relations.area;
