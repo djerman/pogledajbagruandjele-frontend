@@ -30,14 +30,20 @@ export interface Source {
   url?: string;
 }
 
+export interface Place {
+  id: string;
+  naziv?: string;
+  name?: string;
+}
+
 export interface PublicOffice {
-  id: number;
-  person: number | Person;
+  id: number | string;
+  person: number | Person | string;
   title: string;
   body?: string;
   institucija?: string;
   level?: string;
-  place?: string;
+  place?: string | Place;
   province?: string;
   start_date?: string;
   end_date?: string;
