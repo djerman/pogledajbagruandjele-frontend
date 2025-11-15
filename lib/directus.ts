@@ -22,6 +22,7 @@ export interface Area {
   name: string;
   slug: string;
   status: string;
+  sort?: number;
 }
 
 export interface Source {
@@ -323,10 +324,9 @@ export async function getAreas(): Promise<Area[]> {
     
     // Сортирамо по sort пољу ако постоји
     return publishedAreas.sort((a: Area, b: Area) => {
-      if (a.sort !== undefined && b.sort !== undefined) {
-        return a.sort - b.sort;
-      }
-      return 0;
+      const sortA = a.sort ?? 0;
+      const sortB = b.sort ?? 0;
+      return sortA - sortB;
     });
   } catch (error) {
     console.error('Error fetching areas:', error);
@@ -473,7 +473,7 @@ export async function getPublicOfficesByPerson(personId: string | number): Promi
           });
           
           // Додајемо релације на функције/активности
-          offices = offices.map((office) => {
+          offices = offices.map((office: PublicOffice) => {
             const relations = relationsMap.get(office.id);
             if (relations) {
               office.source = relations.source;
