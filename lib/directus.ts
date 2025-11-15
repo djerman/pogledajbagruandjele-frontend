@@ -4,7 +4,18 @@
  */
 
 // За server-side користимо DIRECTUS_URL (интерни URL у Docker-у), за client-side NEXT_PUBLIC_DIRECTUS_URL
-const DIRECTUS_URL = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL || 'http://185.229.119.44:8155';
+// Важно: DIRECTUS_URL се учитава у runtime, NEXT_PUBLIC_DIRECTUS_URL се уграђује у build time
+// Овај фајл се користи само у server-side компонентама, па користимо DIRECTUS_URL прво
+function getDirectusUrl(): string {
+  // У runtime проверавамо DIRECTUS_URL прво (за Docker интерну мрежу)
+  if (typeof window === 'undefined' && process.env.DIRECTUS_URL) {
+    return process.env.DIRECTUS_URL;
+  }
+  // Fallback на NEXT_PUBLIC_DIRECTUS_URL или default
+  return process.env.NEXT_PUBLIC_DIRECTUS_URL || 'http://185.229.119.44:8155';
+}
+
+const DIRECTUS_URL = getDirectusUrl();
 
 export interface Person {
   id: string | number;
