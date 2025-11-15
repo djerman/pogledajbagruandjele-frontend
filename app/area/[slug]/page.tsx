@@ -83,6 +83,7 @@ export default async function AreaPage({
         )}
         </div>
       </div>
+      </div>
     </div>
   );
 }
