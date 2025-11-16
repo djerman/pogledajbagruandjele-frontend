@@ -18,7 +18,9 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
     if (imageId.startsWith('http')) {
       return imageId;
     }
-    return `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${imageId}`;
+    // Користимо NEXT_PUBLIC_DIRECTUS_URL са fallback-ом
+    const baseUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL || 'http://185.229.119.44:8155';
+    return `${baseUrl}/assets/${imageId}`;
   };
 
   // Затварање lightbox-а на Escape
@@ -47,6 +49,19 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
 
   const sources = activity.source || activity.sources || [];
 
+  // Debug логовање за слике
+  useEffect(() => {
+    if (activity.images && activity.images.length > 0) {
+      console.log(`[ActivityCard] Activity "${activity.title}" has ${activity.images.length} images:`, activity.images);
+      activity.images.forEach((imgId, idx) => {
+        const url = getImageUrl(imgId);
+        console.log(`[ActivityCard] Image ${idx + 1} ID: ${imgId}, URL: ${url}`);
+      });
+    } else {
+      console.log(`[ActivityCard] Activity "${activity.title}" has no images`);
+    }
+  }, [activity.images, activity.title]);
+
   return (
     <div className="bg-white rounded-lg shadow-md border-l-4 border-red-600 p-6 mb-6">
       {/* Назив */}
@@ -66,7 +81,10 @@ export default function ActivityCard({ activity }: ActivityCardProps) {
           <div className="flex-shrink-0 md:order-2 flex flex-col gap-3">
             {activity.images.slice(0, 3).map((imgId, idx) => {
               const url = getImageUrl(imgId);
-              if (!url) return null;
+              if (!url) {
+                console.warn(`[ActivityCard] Empty URL for image ${idx + 1} with ID: ${imgId}`);
+                return null;
+              }
               return (
                 <button
                   key={idx}
