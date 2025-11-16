@@ -26,13 +26,11 @@ export default async function PersonPage({
     | { kind: 'activity'; item: Activity };
 
   const timeline: TimelineItem[] = [
-    ...offices.map((o) => ({ kind: 'office', item: o as PublicOffice })),
-    ...activities.map((a) => ({ kind: 'activity', item: a as Activity })),
+    ...offices.map((o) => ({ kind: 'office' as const, item: o })),
+    ...activities.map((a) => ({ kind: 'activity' as const, item: a })),
   ].sort((a, b) => {
-    const getStart = (x: TimelineItem) =>
-      x.kind === 'office' ? x.item.start_date : x.item.start_date;
-    const getEnd = (x: TimelineItem) =>
-      x.kind === 'office' ? x.item.end_date : x.item.end_date;
+    const getStart = (x: TimelineItem) => x.item.start_date;
+    const getEnd = (x: TimelineItem) => x.item.end_date;
 
     const dateA = getStart(a) ? new Date(getStart(a) as string).getTime() : 0;
     const dateB = getStart(b) ? new Date(getStart(b) as string).getTime() : 0;
