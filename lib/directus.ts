@@ -39,8 +39,14 @@ export interface Area {
 
 export interface Source {
   id: number;
-  name?: string;
+  naziv?: string;
+  slug?: string;
+  source_type?: string;
+  publisher?: string;
   url?: string;
+  file_snapshot?: string;
+  notes?: string;
+  status?: string;
 }
 
 export interface Place {
@@ -64,8 +70,183 @@ export interface PublicOffice {
   description?: string;
   images?: string[];
   video?: string;
-  source?: Source[];
+  source?: Source[];   // стари назив поља
+  sources?: Source[];  // новији назив поља у Directus-у
   status: string;
+}
+
+export interface Activity {
+  id: number | string;
+  title: string;
+  type?: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+  place?: string | Place;
+  persons?: (number | string | Person)[];
+  images?: string[];
+  video?: string;
+  source?: Source[];
+  sources?: Source[];
+  status: string;
+  sort?: number;
+}
+
+async function fetchSourcesByIds(ids: (string | number)[]): Promise<Map<string, Source>> {
+  if (!ids || ids.length === 0) return new Map();
+
+  const uniqueIds = Array.from(new Set(ids.map((id) => String(id))));
+  const url = `${DIRECTUS_URL}/items/source?filter[id][_in]=${uniqueIds.join(',')}`;
+
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Directus API error for sources (${response.status}):`, {
+        status: response.status,
+        statusText: response.statusText,
+        url,
+        errorText,
+      });
+      return new Map();
+    }
+
+    const result = await response.json();
+    const list: Source[] = result.data || [];
+    const map = new Map<string, Source>();
+    list.forEach((s) => {
+      map.set(String(s.id), s);
+    });
+    return map;
+  } catch (err) {
+    console.error('Error fetching sources:', err);
+    return new Map();
+  }
+}
+
+/**
+ * Дохвата активности за личност
+ */
+export async function getActivitiesByPerson(personId: string | number): Promise<Activity[]> {
+  try {
+    console.log('Fetching activities for person:', personId);
+
+    // Дохватамо све активности са релацијама, па филтрирамо локално
+    // Важно: експлицитно тражимо persons.* (за person_id), images.directus_files_id и sources.*
+    const url = `${DIRECTUS_URL}/items/activity?limit=1000&fields=*,place.naziv,persons.*,images.directus_files_id,sources.*`;
+
+    const response = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Directus API error for activities (${response.status}):`, {
+        status: response.status,
+        statusText: response.statusText,
+        url,
+        errorText,
+      });
+      return [];
+    }
+
+    const result = await response.json();
+    let activities: any[] = result.data || [];
+
+    console.log('Total activities fetched:', activities.length);
+
+    activities = activities.filter((a: any) => {
+      if (a.status !== 'published') return false;
+
+      if (!a.persons) return false;
+
+      const personsField = a.persons;
+      let ids: (string | number)[] = [];
+
+      if (Array.isArray(personsField)) {
+        ids = personsField.map((p: any) => {
+          if (typeof p === 'object' && p !== null) {
+            return p.person_id || p.id || p;
+          }
+          return p;
+        });
+      } else {
+        // ако је single relation
+        ids = [
+          typeof personsField === 'object' && personsField !== null
+            ? personsField.person_id || personsField.id || personsField
+            : personsField,
+        ];
+      }
+
+      return ids.some((id) => String(id) === String(personId));
+    });
+
+    console.log('Activities after filtering by person/status:', activities.length);
+
+    // Резолвујемо изворе из sources (junction) преко source_id
+    const allSourceIds: (string | number)[] = [];
+    activities.forEach((a: any) => {
+      (a.sources || []).forEach((link: any) => {
+        if (link.source_id) {
+          allSourceIds.push(link.source_id);
+        }
+      });
+    });
+
+    const sourceMap = await fetchSourcesByIds(allSourceIds);
+
+    const normalized: Activity[] = activities.map((a: any) => {
+      const resolvedSources =
+        (a.sources || [])
+          .map((link: any) => sourceMap.get(String(link.source_id)))
+          .filter(Boolean) || [];
+
+      // Нормализујемо слике на низ ID-ева датотека (string[])
+      const normalizedImages: string[] = (a.images || [])
+        .map((img: any) => {
+          if (!img) return null;
+          if (typeof img === 'string') return img;
+          return img.directus_files_id || img.id || null;
+        })
+        .filter((id: string | null): id is string => Boolean(id))
+        .slice(0, 3); // ограничавамо на 3 слике
+
+      return {
+        ...a,
+        images: normalizedImages,
+        sources: resolvedSources,
+      } as Activity;
+    });
+
+    // Сортирање по датумима (као и за функције)
+    return normalized.sort((a: Activity, b: Activity) => {
+      const dateA = a.start_date ? new Date(a.start_date).getTime() : 0;
+      const dateB = b.start_date ? new Date(b.start_date).getTime() : 0;
+
+      if (dateA !== dateB) {
+        return dateA - dateB;
+      }
+
+      const endDateA = a.end_date ? new Date(a.end_date).getTime() : Infinity;
+      const endDateB = b.end_date ? new Date(b.end_date).getTime() : Infinity;
+      return endDateA - endDateB;
+    });
+  } catch (error) {
+    console.error('Error fetching activities:', error);
+    return [];
+  }
 }
 
 /**
@@ -80,11 +261,11 @@ export async function getPersons(
   level?: string
 ): Promise<{ data: Person[]; total: number }> {
   try {
-    // Прво покушавамо са основним пољима без релација (ово ради)
-    let url = `${DIRECTUS_URL}/items/person?limit=1000&fields=id,full_name,slug,person_image,biography,status,sort`;
+    // Прво покушавамо са основним пољима + source (junction) да бисмо касније резолвовали изворе
+    let url = `${DIRECTUS_URL}/items/person?limit=1000&fields=id,full_name,slug,person_image,biography,status,sort,source.*`;
     
     let response = await fetch(url, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -111,46 +292,31 @@ export async function getPersons(
     persons = persons.filter((p: Person) => p.status === 'published');
     console.log('After filtering by published:', persons.length);
     
-    // Покушавамо да дохватимо релације за све личности одједном
-    // Ако не ради, користимо основна поља без релација
+    // Резолвујемо изворе из junction табеле person_source (поље source са source_id)
     try {
-      const relationsUrl = `${DIRECTUS_URL}/items/person?limit=1000&fields=id,area.id,area.name,area.slug,source.id,source.name,source.url`;
-      const relationsResponse = await fetch(relationsUrl, {
-        next: { revalidate: 60 },
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (relationsResponse.ok) {
-        const relationsResult = await relationsResponse.json();
-        const relationsMap = new Map();
-        
-        relationsResult.data?.forEach((p: any) => {
-          relationsMap.set(p.id, {
-            area: p.area || [],
-            source: p.source || [],
-          });
-        });
-        
-        // Додајемо релације на личности
-        persons = persons.map((person: Person) => {
-          const relations = relationsMap.get(person.id);
-          if (relations) {
-            person.area = relations.area;
-            person.source = relations.source;
+      const allSourceIds: (string | number)[] = [];
+      persons.forEach((p: any) => {
+        (p.source || []).forEach((link: any) => {
+          if (link.source_id) {
+            allSourceIds.push(link.source_id);
           }
-          return person;
         });
-        
-        console.log('Relations loaded successfully');
-      } else {
-        console.log('Could not load relations, continuing without them');
-      }
+      });
+
+      const sourceMap = await fetchSourcesByIds(allSourceIds);
+
+      persons = persons.map((p: any) => {
+        const resolvedSources =
+          (p.source || [])
+            .map((link: any) => sourceMap.get(String(link.source_id)))
+            .filter(Boolean) || [];
+        return {
+          ...p,
+          source: resolvedSources,
+        } as Person;
+      });
     } catch (err) {
-      console.log('Error loading relations:', err);
-      // Настављамо без релација
+      console.log('Error resolving person sources:', err);
     }
     
     // Ако је дат areaSlug, филтрирамо по области
@@ -196,10 +362,10 @@ export async function getPersonBySlug(slug: string): Promise<Person | null> {
     console.log('Fetching person by slug:', slug);
     
     // Дохватамо све личности и филтрирамо по slug-у (као у getPersons)
-    const url = `${DIRECTUS_URL}/items/person?limit=1000&fields=id,full_name,slug,person_image,biography,status,sort`;
+    const url = `${DIRECTUS_URL}/items/person?limit=1000&fields=id,full_name,slug,person_image,biography,status,sort,source.*`;
     
     const response = await fetch(url, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -237,38 +403,24 @@ export async function getPersonBySlug(slug: string): Promise<Person | null> {
     const person = persons[0];
     console.log('Found person:', person.full_name);
     
-    // Покушавамо да дохватимо релације - дохватамо све личности са релацијама
+    // Резолвујемо изворе за ову личност преко source_id
     try {
-      const relationsUrl = `${DIRECTUS_URL}/items/person?limit=1000&fields=id,area.id,area.name,area.slug,source.id,source.name,source.url`;
-      const relationsResponse = await fetch(relationsUrl, {
-        next: { revalidate: 60 },
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (relationsResponse.ok) {
-        const relationsResult = await relationsResponse.json();
-        const personWithRelations = relationsResult.data?.find((p: any) => String(p.id) === String(person.id));
-        
-        if (personWithRelations) {
-          person.area = personWithRelations.area || [];
-          person.source = personWithRelations.source || [];
-          console.log('Relations loaded:', {
-            areas: person.area?.length || 0,
-            sources: person.source?.length || 0
-          });
-        } else {
-          console.log('Person not found in relations result');
+      const allSourceIds: (string | number)[] = [];
+      (person as any).source?.forEach((link: any) => {
+        if (link.source_id) {
+          allSourceIds.push(link.source_id);
         }
-      } else {
-        const errorText = await relationsResponse.text();
-        console.log('Could not load relations, status:', relationsResponse.status, errorText);
-      }
+      });
+
+      const sourceMap = await fetchSourcesByIds(allSourceIds);
+      const resolvedSources =
+        ((person as any).source || [])
+          .map((link: any) => sourceMap.get(String(link.source_id)))
+          .filter(Boolean) || [];
+
+      (person as any).source = resolvedSources;
     } catch (err) {
-      console.log('Error loading relations for person:', err);
-      // Настављамо без релација
+      console.log('Error resolving sources for person:', err);
     }
     
     return person;
@@ -296,7 +448,7 @@ export async function getAreas(): Promise<Area[]> {
       try {
         console.log('Trying area URL:', url);
         response = await fetch(url, {
-          next: { revalidate: 300 },
+          cache: 'no-store',
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
@@ -354,40 +506,41 @@ export async function getPublicOfficesByPerson(personId: string | number): Promi
     console.log('Fetching public offices for person:', personId);
     
     // Покушавамо са `fields=*` и релацијама да дохватимо сва поља
-    let url = `${DIRECTUS_URL}/items/public_office?limit=1000&fields=*,place.naziv,source.*`;
+    // Подржавамо и стари назив поља (source) и новији (sources)
+    let url = `${DIRECTUS_URL}/items/public_office?limit=1000&fields=*,place.naziv,source.*,sources.*`;
     
-    let response = await fetch(url, {
-      next: { revalidate: 60 },
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    });
+           let response = await fetch(url, {
+             cache: 'no-store',
+             headers: {
+               'Content-Type': 'application/json',
+               'Accept': 'application/json',
+             },
+           });
 
     // Ако не ради са `fields=*`, покушавамо без поља
     if (!response.ok) {
       console.log('Failed with fields=*, trying without fields...');
       url = `${DIRECTUS_URL}/items/public_office?limit=1000`;
-      response = await fetch(url, {
-        next: { revalidate: 60 },
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
+             response = await fetch(url, {
+               cache: 'no-store',
+               headers: {
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
+               },
+             });
     }
     
     // Ако и даље не ради, покушавамо са експлицитним пољима
     if (!response.ok) {
       console.log('Failed without fields, trying with explicit fields...');
       url = `${DIRECTUS_URL}/items/public_office?limit=1000&fields=title,body,start_date,end_date,level,place,province,institucija,appointed_or_elected,description,status,person`;
-      response = await fetch(url, {
-        next: { revalidate: 60 },
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
+             response = await fetch(url, {
+               cache: 'no-store',
+               headers: {
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
+               },
+             });
     }
 
     if (!response.ok) {
@@ -426,7 +579,10 @@ export async function getPublicOfficesByPerson(personId: string | number): Promi
       id: offices[0].id,
       title: offices[0].title,
       person: offices[0].person,
-      status: offices[0].status
+      status: offices[0].status,
+      place: offices[0].place,
+      source: offices[0].source,
+      sources: offices[0].sources,
     } : 'No offices');
     console.log('Looking for personId:', personId, 'type:', typeof personId);
     
@@ -460,47 +616,33 @@ export async function getPublicOfficesByPerson(personId: string | number): Promi
     
     console.log('After filtering by person and status:', offices.length);
     
-    // Покушавамо да дохватимо релације (source, place) за сваку функцију/активност
+    // Резолвујемо изворе из junction табеле public_office_source (поља source/sources са source_id)
     if (offices.length > 0) {
       try {
-        // Модел mesto користи `naziv` уместо `name`
-        const relationsUrl = `${DIRECTUS_URL}/items/public_office?limit=1000&fields=id,source.id,source.name,source.url,place.id,place.naziv`;
-        const relationsResponse = await fetch(relationsUrl, {
-          next: { revalidate: 60 },
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
+        const allSourceIds: (string | number)[] = [];
+        offices.forEach((o: any) => {
+          (o.source || []).forEach((link: any) => {
+            if (link.source_id) allSourceIds.push(link.source_id);
+          });
+          (o.sources || []).forEach((link: any) => {
+            if (link.source_id) allSourceIds.push(link.source_id);
+          });
         });
-        
-        if (relationsResponse.ok) {
-          const relationsResult = await relationsResponse.json();
-          const relationsMap = new Map();
-          
-          relationsResult.data?.forEach((o: any) => {
-            relationsMap.set(o.id, {
-              source: o.source || [],
-              place: o.place || null,
-            });
-          });
-          
-          // Додајемо релације на функције/активности
-          offices = offices.map((office: PublicOffice) => {
-            const relations = relationsMap.get(office.id);
-            if (relations) {
-              office.source = relations.source;
-              if (relations.place) {
-                office.place = relations.place;
-              }
-            }
-            return office;
-          });
-        } else {
-          const errorText = await relationsResponse.text();
-          console.log('Failed to load relations:', relationsResponse.status, errorText);
-        }
+
+        const sourceMap = await fetchSourcesByIds(allSourceIds);
+
+        offices = offices.map((o: any) => {
+          const links = (o.source || o.sources || []) as any[];
+          const resolvedSources =
+            links.map((link) => sourceMap.get(String(link.source_id))).filter(Boolean) || [];
+          return {
+            ...o,
+            source: resolvedSources,
+            sources: resolvedSources,
+          } as PublicOffice;
+        });
       } catch (err) {
-        console.log('Error loading relations for offices:', err);
+        console.log('Error resolving sources for offices:', err);
       }
     }
     

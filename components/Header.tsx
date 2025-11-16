@@ -29,24 +29,38 @@ export default function Header({ areas }: HeaderProps) {
     if (!loadedAreas || loadedAreas.length === 0) {
       setLoadedAreas(defaultAreas);
     }
-  }, [areas]);
+  }, [areas, loadedAreas]);
 
-  const displayAreas = loadedAreas && loadedAreas.length > 0 ? loadedAreas : defaultAreas;
+  // Фиксни редослед области у менију
+  const areaOrder = ['politika', 'privreda', 'mediji', 'kultura', 'sport', 'bezbednost', 'ostalo'];
+
+  const displayAreas = (loadedAreas && loadedAreas.length > 0 ? loadedAreas : defaultAreas)
+    .slice()
+    .sort((a, b) => {
+      const ai = areaOrder.indexOf(a.slug);
+      const bi = areaOrder.indexOf(b.slug);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
 
   return (
     <header className="w-full bg-white border-b border-gray-200">
       <div className="container mx-auto px-4 py-2 flex items-center justify-between">
-        {/* Лого */}
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/logo_bagra.png"
-            alt="Лого"
-            width={60}
-            height={24}
-            className="h-auto"
-            priority
-          />
-        </Link>
+        {/* Лева страна: лого + текст */}
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/logo_bagra.png"
+              alt="Лого"
+              width={60}
+              height={24}
+              className="h-auto"
+              priority
+            />
+          </Link>
+          <span className="text-sm md:text-base font-semibold text-gray-900">
+            погледај багру
+          </span>
+        </div>
 
         {/* Бургер мени */}
         <div className="relative">

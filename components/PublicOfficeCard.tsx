@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { PublicOffice } from '@/lib/directus';
+import ExpandableHtml from './ExpandableHtml';
 
 interface PublicOfficeCardProps {
   office: PublicOffice;
@@ -16,10 +17,10 @@ export default function PublicOfficeCard({ office }: PublicOfficeCardProps) {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Н/Д';
     const date = new Date(dateString);
+    // Назив месеца и година, нпр. "новембар 2025."
     return date.toLocaleDateString('sr-RS', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric',
     });
   };
 
@@ -39,15 +40,15 @@ export default function PublicOfficeCard({ office }: PublicOfficeCardProps) {
         {office.title}
       </h3>
 
-      {/* Body - текст испод назива */}
-      {office.body && (
-        <div className="mb-4">
-          <div 
-            className="text-gray-700 leading-relaxed prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: office.body }}
-          />
-        </div>
-      )}
+      {/* Body / опис - текст испод назива (HTML из Directus-а, до ~20 редова) */}
+      <ExpandableHtml
+        html={
+          office.body && office.description
+            ? `${office.body}<br/><br/>${office.description}`
+            : office.body || office.description || undefined
+        }
+        maxLength={1000}
+      />
 
       {/* Images */}
       {office.images && office.images.length > 0 && (
@@ -60,6 +61,7 @@ export default function PublicOfficeCard({ office }: PublicOfficeCardProps) {
                   alt={`${office.title} - слика ${idx + 1}`}
                   fill
                   className="object-cover"
+                  unoptimized
                 />
               </div>
             ))}
@@ -83,11 +85,13 @@ export default function PublicOfficeCard({ office }: PublicOfficeCardProps) {
       )}
 
       {/* Source - испод images/video, пре детаља */}
-      {office.source && office.source.length > 0 && (
+      {(() => {
+        const sources = office.source || office.sources || [];
+        return sources.length > 0 ? (
         <div className="mb-4 pb-4 border-b border-gray-200">
           <p className="text-sm text-gray-600">
             <span className="font-semibold">Извор:</span>{' '}
-            {office.source.map((src, idx) => (
+            {sources.map((src, idx) => (
               <span key={src.id || idx}>
                 {src.url ? (
                   <a
@@ -96,59 +100,59 @@ export default function PublicOfficeCard({ office }: PublicOfficeCardProps) {
                     rel="noopener noreferrer"
                     className="text-red-600 hover:underline"
                   >
-                    {src.name || src.url}
+                    {src.naziv || src.url}
                   </a>
                 ) : (
-                  src.name
+                  src.naziv
                 )}
-                {idx < office.source!.length - 1 && ', '}
+                {idx < sources.length - 1 && ', '}
               </span>
             ))}
           </p>
         </div>
-      )}
+        ) : null;
+      })()}
 
-      {/* Детаљи - у доњем делу */}
-      <div className="space-y-2 text-sm text-gray-700">
+      {/* Детаљи као беџеви у доњем делу */}
+      <div className="mt-2 flex flex-wrap gap-2 text-xs md:text-sm text-gray-700">
         {office.start_date && (
-          <p>
-            <span className="font-semibold">Датум почетка:</span> {formatDate(office.start_date)}
-          </p>
+          <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+            {`Почетак: ${formatDate(office.start_date)}`}
+          </span>
         )}
         {office.end_date && (
-          <p>
-            <span className="font-semibold">Датум краја:</span> {formatDate(office.end_date)}
-          </p>
+          <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+            {`Крај: ${formatDate(office.end_date)}`}
+          </span>
         )}
         {office.level && (
-          <p>
-            <span className="font-semibold">Ниво власти:</span> {getLevelName(office.level)}
-          </p>
+          <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+            {`Ниво: ${getLevelName(office.level)}`}
+          </span>
         )}
         {office.place && (
-          <p>
-            <span className="font-semibold">Место:</span> {typeof office.place === 'object' && office.place !== null ? (office.place.naziv || office.place.name || office.place.id) : office.place}
-          </p>
+          <span className="px-3 py-1 rounded-full bg-green-100 text-green-800 border border-green-200">
+            {`Место: ${
+              typeof office.place === 'object' && office.place !== null
+                ? office.place.naziv || office.place.name || office.place.id
+                : office.place
+            }`}
+          </span>
         )}
         {office.province && (
-          <p>
-            <span className="font-semibold">Покрајина:</span> {office.province}
-          </p>
+          <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+            {`Покрајина: ${office.province}`}
+          </span>
         )}
         {office.institucija && (
-          <p>
-            <span className="font-semibold">Институција:</span> {office.institucija}
-          </p>
+          <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-800 border border-orange-200">
+            {`Институција: ${office.institucija}`}
+          </span>
         )}
         {office.appointed_or_elected && (
-          <p>
-            <span className="font-semibold">Начин именовања:</span> {office.appointed_or_elected}
-          </p>
-        )}
-        {office.description && (
-          <p className="mt-4 pt-4 border-t border-gray-200">
-            <span className="font-semibold">Опис:</span> {office.description}
-          </p>
+          <span className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200">
+            {`Начин именовања: ${office.appointed_or_elected}`}
+          </span>
         )}
       </div>
     </div>

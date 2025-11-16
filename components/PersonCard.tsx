@@ -12,12 +12,13 @@ interface PersonCardProps {
 export default function PersonCard({ person }: PersonCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  // Проверавамо да ли биографија прелази 6 редова
   const biography = person.biography || '';
   
   // Уклањамо HTML тагове за процену дужине текста
   const textOnly = biography.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-  const shouldShowMore = textOnly.length > 300; // Приближно 6 редова текста
+  // За почетну страну: око 900 карактера ≈ 10–12 редова текста
+  const MAX_LENGTH = 900;
+  const shouldShowMore = textOnly.length > MAX_LENGTH;
   
   // За скраћену верзију, налазимо последњи завршни таг у првих 300 карактера
   const getTruncatedHtml = (html: string, maxLength: number) => {
@@ -44,7 +45,7 @@ export default function PersonCard({ person }: PersonCardProps) {
     }
     
     // Налазимо последњи завршни таг пре позиције сечења
-    const truncated = html.substring(0, lastGoodPosition);
+        const truncated = html.substring(0, lastGoodPosition);
     const lastTagEnd = truncated.lastIndexOf('>');
     const lastTagStart = truncated.lastIndexOf('<');
     
@@ -59,7 +60,7 @@ export default function PersonCard({ person }: PersonCardProps) {
   const displayBiography = isExpanded 
     ? biography 
     : shouldShowMore 
-      ? getTruncatedHtml(biography, 300)
+      ? getTruncatedHtml(biography, MAX_LENGTH)
       : biography;
 
   const imageUrl = person.person_image 
@@ -81,6 +82,7 @@ export default function PersonCard({ person }: PersonCardProps) {
                   alt={person.full_name}
                   fill
                   className="object-cover"
+                  unoptimized
                 />
               </div>
             </div>
@@ -91,20 +93,6 @@ export default function PersonCard({ person }: PersonCardProps) {
             <h2 className="text-2xl font-bold text-gray-900 mb-3">
               {person.full_name}
             </h2>
-
-            {/* Области (тагови) */}
-            {person.area && person.area.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {person.area.map((area) => (
-                  <span
-                    key={area.id}
-                    className="px-3 py-1 text-sm bg-red-100 text-red-800 rounded-full"
-                  >
-                    {area.name}
-                  </span>
-                ))}
-              </div>
-            )}
 
             {/* Биографија */}
             {biography && (
@@ -130,30 +118,46 @@ export default function PersonCard({ person }: PersonCardProps) {
               </div>
             )}
 
-            {/* Source - испод текста, али изнад детаља */}
+            {/* Source и беџеви области у дну картице */}
             {person.source && person.source.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 mb-3">
                   <span className="font-semibold">Извор:</span>{' '}
                   {person.source.map((src, idx) => (
-                    <span key={src.id}>
+                    <span key={src.id || idx}>
                       {src.url ? (
-                        <a
-                          href={src.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
                           className="text-red-600 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.open(src.url!, '_blank', 'noopener,noreferrer');
+                          }}
                         >
-                          {src.name || src.url}
-                        </a>
+                          {src.naziv || src.url}
+                        </button>
                       ) : (
-                        src.name
+                        src.naziv
                       )}
                       {idx < person.source!.length - 1 && ', '}
                     </span>
                   ))}
                 </p>
+
+                {/* Области као беџеви */}
+                {person.area && person.area.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {person.area.map((area) => (
+                      <span
+                        key={area.id}
+                        className="px-3 py-1 text-xs md:text-sm rounded-full bg-red-50 text-red-800 border border-red-100"
+                      >
+                        {area.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

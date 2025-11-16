@@ -1,9 +1,10 @@
-import { getPersonBySlug, getPublicOfficesByPerson } from '@/lib/directus';
-import PersonCard from '@/components/PersonCard';
+import { getPersonBySlug, getPublicOfficesByPerson, getActivitiesByPerson, Activity, PublicOffice } from '@/lib/directus';
 import PublicOfficeCard from '@/components/PublicOfficeCard';
 import GradientHeader from '@/components/GradientHeader';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
+import PersonBiography from '@/components/PersonBiography';
+import ActivityCard from '@/components/ActivityCard';
 
 export default async function PersonPage({
   params,
@@ -18,6 +19,30 @@ export default async function PersonPage({
   }
 
   const offices = await getPublicOfficesByPerson(person.id);
+  const activities = await getActivitiesByPerson(person.id);
+
+  type TimelineItem =
+    | { kind: 'office'; item: PublicOffice }
+    | { kind: 'activity'; item: Activity };
+
+  const timeline: TimelineItem[] = [
+    ...offices.map((o) => ({ kind: 'office', item: o as PublicOffice })),
+    ...activities.map((a) => ({ kind: 'activity', item: a as Activity })),
+  ].sort((a, b) => {
+    const getStart = (x: TimelineItem) =>
+      x.kind === 'office' ? x.item.start_date : x.item.start_date;
+    const getEnd = (x: TimelineItem) =>
+      x.kind === 'office' ? x.item.end_date : x.item.end_date;
+
+    const dateA = getStart(a) ? new Date(getStart(a) as string).getTime() : 0;
+    const dateB = getStart(b) ? new Date(getStart(b) as string).getTime() : 0;
+
+    if (dateA !== dateB) return dateA - dateB;
+
+    const endA = getEnd(a) ? new Date(getEnd(a) as string).getTime() : Infinity;
+    const endB = getEnd(b) ? new Date(getEnd(b) as string).getTime() : Infinity;
+    return endA - endB;
+  });
 
   const imageUrl = person.person_image 
     ? person.person_image.startsWith('http')
@@ -46,6 +71,7 @@ export default async function PersonPage({
                     alt={person.full_name}
                     fill
                     className="object-cover"
+                    unoptimized
                   />
                 </div>
               </div>
@@ -57,37 +83,16 @@ export default async function PersonPage({
                 {person.full_name}
               </h1>
 
-              {/* Области */}
-              {person.area && person.area.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {person.area.map((area) => (
-                    <span
-                      key={area.id}
-                      className="px-3 py-1 text-sm bg-red-100 text-red-800 rounded-full"
-                    >
-                      {area.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Биографија */}
-              {person.biography && (
-                <div className="mb-4">
-                  <div 
-                    className="text-gray-700 leading-relaxed prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: person.biography }}
-                  />
-                </div>
-              )}
+              {/* Биографија - до ~20 редова, са ...више / ...мање */}
+              <PersonBiography biography={person.biography} />
 
               {/* Source - испод биографије */}
               {person.source && person.source.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 mb-3">
                     <span className="font-semibold">Извор:</span>{' '}
                     {person.source.map((src, idx) => (
-                      <span key={src.id}>
+                      <span key={src.id || idx}>
                         {src.url ? (
                           <a
                             href={src.url}
@@ -95,15 +100,29 @@ export default async function PersonPage({
                             rel="noopener noreferrer"
                             className="text-red-600 hover:underline"
                           >
-                            {src.name || src.url}
+                            {src.naziv || src.url}
                           </a>
                         ) : (
-                          src.name
+                          src.naziv
                         )}
                         {idx < person.source!.length - 1 && ', '}
                       </span>
                     ))}
                   </p>
+
+                  {/* Области као беџеви у дну биографске картице */}
+                  {person.area && person.area.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {person.area.map((area) => (
+                        <span
+                          key={area.id}
+                          className="px-3 py-1 text-xs md:text-sm rounded-full bg-red-50 text-red-800 border border-red-100"
+                        >
+                          {area.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -112,14 +131,18 @@ export default async function PersonPage({
       </div>
 
       {/* Функције и активности */}
-      {offices.length > 0 && (
+      {timeline.length > 0 && (
         <div className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             Функције и активности
           </h2>
-          {offices.map((office) => (
-            <PublicOfficeCard key={office.id} office={office} />
-          ))}
+          {timeline.map((entry) =>
+            entry.kind === 'office' ? (
+              <PublicOfficeCard key={`office-${entry.item.id}`} office={entry.item} />
+            ) : (
+              <ActivityCard key={`activity-${entry.item.id}`} activity={entry.item} />
+            )
+          )}
         </div>
       )}
         </div>
