@@ -15,8 +15,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Погледај Багру и Анђеле",
+  title: "Погледај Багру",
   description: "База података о онима који су заборавили ко су и чему служе",
+  icons: {
+    icon: [
+      { url: '/icon.png', sizes: 'any' },
+      { url: '/logo_bagra.png', sizes: 'any', type: 'image/png' },
+    ],
+    apple: '/logo_bagra.png',
+  },
 };
 
 export default async function RootLayout({

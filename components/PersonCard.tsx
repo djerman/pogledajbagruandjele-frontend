@@ -66,7 +66,7 @@ export default function PersonCard({ person }: PersonCardProps) {
   const imageUrl = person.person_image 
     ? person.person_image.startsWith('http')
       ? person.person_image
-      : `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${person.person_image}`
+      : `${process.env.NEXT_PUBLIC_DIRECTUS_URL || 'http://185.229.119.44:8155'}/assets/${person.person_image}`
     : null;
 
   return (
