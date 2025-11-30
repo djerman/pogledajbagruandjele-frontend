@@ -70,7 +70,7 @@ export default function PersonCard({ person }: PersonCardProps) {
     : null;
 
   return (
-    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 mb-6 border border-gray-200">
+    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 mb-6 border-2 border-gray-300">
       <Link href={`/person/${person.slug}`} className="block">
         <div className="flex flex-col md:flex-row gap-6">
           {/* Слика - на мобилним изнад, на десктопу десно */}

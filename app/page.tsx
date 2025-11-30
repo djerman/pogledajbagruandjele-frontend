@@ -1,5 +1,6 @@
-import { getPersons, getAreas } from '@/lib/directus';
+import { getPersons, getAreas, getTemas } from '@/lib/directus';
 import PersonCard from '@/components/PersonCard';
+import TemaCard from '@/components/TemaCard';
 import YouTubeVideo from '@/components/YouTubeVideo';
 import Filters from '@/components/Filters';
 import GradientHeader from '@/components/GradientHeader';
@@ -25,6 +26,7 @@ export default async function Home({
   const offset = (page - 1) * limit;
 
   const areas = await getAreas();
+  const temas = await getTemas();
   const { data: persons, total } = await getPersons(
     limit, 
     offset, 
@@ -46,6 +48,15 @@ export default async function Home({
       {/* Бела позадина за остатак садржаја */}
       <div className="bg-white">
         <div className="container mx-auto px-4 py-8">
+
+          {/* Листа тема */}
+          {temas.length > 0 && (
+            <div className="mb-12">
+              {temas.map((tema) => (
+                <TemaCard key={tema.id} tema={tema} />
+              ))}
+            </div>
+          )}
 
           {/* Црвени банер */}
           <div className="bg-red-600 text-white py-4 px-6 rounded-lg mb-8 text-center">

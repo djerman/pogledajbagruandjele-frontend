@@ -92,6 +92,18 @@ export interface Activity {
   sort?: number;
 }
 
+export interface Tema {
+  id: number | string;
+  name: string;
+  description: string;
+  date_from?: string;
+  date_to?: string;
+  images?: string[];
+  sources?: Source[];
+  status: string;
+  sort?: number;
+}
+
 async function fetchSourcesByIds(ids: (string | number)[]): Promise<Map<string, Source>> {
   if (!ids || ids.length === 0) return new Map();
 
@@ -712,6 +724,91 @@ export async function getAreaBySlug(slug: string): Promise<Area | null> {
   } catch (error) {
     console.error('Error fetching area by slug:', error);
     return null;
+  }
+}
+
+/**
+ * Дохвата листу тема (поређаних по sort у растућем низу)
+ */
+export async function getTemas(): Promise<Tema[]> {
+  try {
+    console.log('Fetching temas...');
+    
+    // Дохватамо све теме са релацијама
+    const url = `${DIRECTUS_URL}/items/tema?limit=1000&fields=*,images.directus_files_id,sources.*`;
+    
+    const response = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Directus API error for temas (${response.status}):`, {
+        status: response.status,
+        statusText: response.statusText,
+        url,
+        errorText,
+      });
+      return [];
+    }
+
+    const result = await response.json();
+    let temas: any[] = result.data || [];
+
+    console.log('Total temas fetched:', temas.length);
+
+    // Филтрирамо по статусу
+    temas = temas.filter((t: any) => t.status === 'published');
+    console.log('After filtering by published:', temas.length);
+
+    // Резолвујемо изворе из sources (junction) преко source_id
+    const allSourceIds: (string | number)[] = [];
+    temas.forEach((t: any) => {
+      (t.sources || []).forEach((link: any) => {
+        if (link.source_id) {
+          allSourceIds.push(link.source_id);
+        }
+      });
+    });
+
+    const sourceMap = await fetchSourcesByIds(allSourceIds);
+
+    // Нормализујемо слике на низ ID-ева датотека (string[])
+    const normalized: Tema[] = temas.map((t: any) => {
+      const resolvedSources =
+        (t.sources || [])
+          .map((link: any) => sourceMap.get(String(link.source_id)))
+          .filter(Boolean) || [];
+
+      const normalizedImages: string[] = (t.images || [])
+        .map((img: any) => {
+          if (!img) return null;
+          if (typeof img === 'string') return img;
+          return img.directus_files_id || img.id || null;
+        })
+        .filter((id: string | null): id is string => Boolean(id))
+        .slice(0, 3); // ограничавамо на 3 слике
+
+      return {
+        ...t,
+        images: normalizedImages,
+        sources: resolvedSources,
+      } as Tema;
+    });
+
+    // Сортирамо по sort пољу у растућем низу
+    return normalized.sort((a: Tema, b: Tema) => {
+      const sortA = a.sort ?? 0;
+      const sortB = b.sort ?? 0;
+      return sortA - sortB;
+    });
+  } catch (error) {
+    console.error('Error fetching temas:', error);
+    return [];
   }
 }
 
